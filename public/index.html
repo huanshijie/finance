@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" href="//a.cdn.histudy.com/lib/jquery-ui/1.12.1/jquery-ui.css">
+  <title>费用统计</title>
+</head>
+<body>
+  <table border="1px" style="text-align: center">
+    <col width="200">
+    <col width="200">
+    <col width="200">
+    <col width="200">
+    <thead>
+      <th>日期</th>
+      <th>用户</th>
+      <th>费用</th>
+      <th>备注</th>
+      <th>操作</th>
+    </thead>
+    <tbody>
+      <tr>
+        <td><input type="date" id="paramDate"></td>
+        <td><input id="paramName"></td>
+        <td><input type="number" id="paramCost"></td>
+        <td><input type="text" id="paramComment"></td>
+        <td><button id="addButton">添加</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="margin-top: 20px">
+
+    <div>
+      <select name="" id="selectYear"></select>
+      <select name="" id="selectMonth"></select>
+    </div>
+    <table id="table1" border="1px" style="text-align: center">
+      <col width="200">
+      <col width="200">
+      <col width="200">
+      <col width="200">
+      <thead>
+        <th>日期</th>
+        <th>用户</th>
+        <th>费用</th>
+        <th>备注</th>
+        <th>操作</th>
+      </thead>
+      <tbody id="tbody">
+        
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top: 20px">
+    <h3>汇总</h3>
+    <table id="table2" border="1px" style="text-align: center">
+      <col width="200">
+      <col width="200">
+      <col width="200">
+      <thead>
+        <th>年/月</th>
+        <th>用户</th>
+        <th>总费用</th>
+      </thead>
+      <tbody id="polymer">
+          
+      </tbody>
+    </table>
+  </div>
+  <script src="//a.cdn.histudy.com/lib/jQuery/3.3.1/jquery.min.js"></script>
+  <script src="//a.cdn.histudy.com/lib/jquery-ui/1.12.1/jquery-ui.js"></script>  
+  <script src="//a.cdn.histudy.com/lib/js-xlsx/0.13.5/xlsx.core.min.js"></script>  
+  <script src="//a.cdn.histudy.com/lib/file-saver/1.3.6/FileSaver.min.js"></script>  
+  <script src="//a.cdn.histudy.com/lib/table-export/5.0.2/js/tableexport.min.js"></script>  
+</body>
+
+
+<script>
+  $(document).ready(function() {
+    let $tbody = $('#tbody');
+    let $addButton = $('#addButton');
+    let $paramDate = $('#paramDate');
+    let $paramCost = $('#paramCost');
+    let $paramName = $('#paramName');
+    let $paramComment = $('#paramComment');
+    let $selectYear = $('#selectYear');
+    let $selectMonth = $('#selectMonth');
+    let $polymer = $('#polymer');
+    let excelContrl = $("#table1, #table2").tableExport();
+
+    let renderTbody = (rows) => {
+      $tbody.html(''); 
+      rows.forEach(item => {
+        $tbody.append($(`<tr><td>${item.date}</td><td>${item.name}</td><td>${item.cost}</td><td>${item.comment}</td><td ><button class="deleteButton" data-id="${item.id}">删除</button></td></tr>`))
+      });
+    }
+
+    let renderPolymer = (rows) => {
+      let polymerResult = {};
+      $polymer.html('');
+      rows.map(item => {
+        if (!polymerResult[item.name]) {
+          polymerResult[item.name] = 0;
+        } 
+        polymerResult[item.name] += item.cost;
+      });
+      
+      Object.keys(polymerResult).map(key => {
+        $polymer.append($(`<tr><td>${$selectYear.val()}/${$selectMonth.val()}</td><td>${key}</td><td>${polymerResult[key]}</td></tr>`))
+      })
+    }
+
+    let Api = {
+      getAll: () => {
+        return $.ajax('/api/getAll?year=' + $selectYear.val() + '&month=' + $selectMonth.val());
+      },
+      create: (date, name, cost, comment) => {
+        return $.ajax({
+          url: '/api/create',
+          method: 'GET',
+          data: {date, name, cost, comment}
+        })
+      },
+      delete: (id) => {
+        if (!id) return;
+        return $.ajax('/api/delete?id=' + id);
+      }
+    }
+
+    let init = () => {
+      Api.getAll()
+      .then(rows => {
+        renderTbody(rows);
+        renderPolymer(rows);
+        excelContrl.reset();
+      })
+    }
+    
+    let initDate = () => {
+      let date = new Date();
+      [date.getFullYear()].map(item => {
+        let option = $(`<option value="${item}">${item}</option>`)
+        if (item === date.getFullYear()) {
+          option.attr('selected', true);
+        }
+        $selectYear.append(option);
+      });
+      ['01', '02', '03', '04', '05', '06', '07', '08' ,'09', '10', '11', '12'].map(item => {
+        let option = $(`<option value="${item}">${item}</option>`)
+        if (parseInt(item) == date.getMonth() + 1) {
+          option.attr('selected', true);
+        }
+        $selectMonth.append(option);
+      });
+
+      $paramDate.val(date.toISOString().substr(0, 10));
+
+      $paramName.autocomplete({
+        source: ['黄旭栋','白清滨','蔡欢','曾利文','陈桂香','陈慧樱','陈坤泽','陈明辉','陈鹏','陈尚东','陈伟艺','陈元龙','傅俊杰','龚远琪','郭鸿波','郭明利','郭秋凤','郭文豪','洪育钦','黄冰龙','黄静耘','黄伟鑫','梁奕本','梁昱恒','廖建树','林春明','林杰','林晓波','刘富强','刘庆','刘志明','欧冰臻','欧衡山','饶小咪','王晓阳','王越','温静','肖才源','徐钊琳','闫俊俊','严燊','叶灿斌','余辉阳','张丹','邹榕']
+      });
+    }
+
+
+    $tbody.on('click', '.deleteButton', function() {
+      let id = $(this).data('id');
+      if (window.confirm('确定删除吗?')) {
+        Api.delete(id).done(init);
+      }
+    });
+    
+    $addButton.on('click', function() {
+      let date = $paramDate.val();
+      let name = $paramName.val();
+      let cost = $paramCost.val();
+      let comment = $paramComment.val();
+      if (!date) {
+        alert('请选择日期');
+        return;
+      }
+      if (!name) {
+        alert('请输入用户');
+        return;
+      }
+      if (!cost || cost <= 0) {
+        alert('请输入正确金额');
+        return;
+      }
+      Api.create(date, name, cost, comment).then(function() {
+        $selectMonth.val(date.split('-')[1]);
+        init();
+        $paramCost.val('');
+        $paramComment.val('');
+        alert('添加成功');
+      });
+    });
+
+    $selectMonth.on('change', function() {
+      init();
+    });
+
+    initDate();
+    init();
+  });
+</script>
+</html>
